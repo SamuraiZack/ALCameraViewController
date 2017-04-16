@@ -43,6 +43,10 @@ public extension CameraViewController {
     }
 }
 
+protocol CameraViewControllerDelegate : class {
+    func didPickImage(image: UIImage)
+}
+
 open class CameraViewController: UIViewController {
     
     var didUpdateViews = false
@@ -82,6 +86,9 @@ open class CameraViewController: UIViewController {
     var cameraOverlayEdgeTwoConstraint: NSLayoutConstraint?
     var cameraOverlayWidthConstraint: NSLayoutConstraint?
     var cameraOverlayCenterConstraint: NSLayoutConstraint?
+    
+    var skipConfirmStep = false
+    weak var cameraVCDelegate : CameraViewControllerDelegate?
     
     let cameraView : CameraView = {
         let cameraView = CameraView()
@@ -493,6 +500,14 @@ open class CameraViewController: UIViewController {
                     self?.toggleButtons(enabled: true)
                     return
                 }
+                
+                if let skipConfirmStepBool = self?.skipConfirmStep {
+                    if skipConfirmStepBool {
+                        self?.cameraVCDelegate?.didPickImage(image: image)
+                        return
+                    }
+                }
+                
                 self?.saveImage(image: image)
             }
         }
@@ -518,6 +533,10 @@ open class CameraViewController: UIViewController {
     }
     
     internal func close() {
+        if skipConfirmStep {
+            self.dismiss(animated: true, completion: nil)
+            return
+        }
         onCompletion?(nil, nil)
         onCompletion = nil
     }
@@ -532,6 +551,13 @@ open class CameraViewController: UIViewController {
                 return
             }
 
+            if let skipConfirmStepBool = self?.skipConfirmStep {
+                if skipConfirmStepBool {
+                    self?.cameraVCDelegate?.didPickImage(image: image)
+                    return
+                }
+            }
+            
             self?.onCompletion?(image, asset)
         }
         
