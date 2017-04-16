@@ -21,7 +21,7 @@ public extension CameraViewController {
         navigationController.navigationBar.barTintColor = UIColor.black
         navigationController.navigationBar.barStyle = UIBarStyle.black
         navigationController.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
-
+        
         imagePicker.onSelectionComplete = { [weak imagePicker] asset in
             if let asset = asset {
                 let confirmController = ConfirmViewController(asset: asset, allowsCropping: croppingEnabled)
@@ -43,7 +43,7 @@ public extension CameraViewController {
     }
 }
 
-protocol CameraViewControllerDelegate : class {
+public protocol CameraViewControllerDelegate : class {
     func didPickImage(image: UIImage)
 }
 
@@ -87,8 +87,7 @@ open class CameraViewController: UIViewController {
     var cameraOverlayWidthConstraint: NSLayoutConstraint?
     var cameraOverlayCenterConstraint: NSLayoutConstraint?
     
-    var skipConfirmStep = false
-    weak var cameraVCDelegate : CameraViewControllerDelegate?
+    public weak var cameraVCDelegate : CameraViewControllerDelegate?
     
     let cameraView : CameraView = {
         let cameraView = CameraView()
@@ -162,7 +161,7 @@ open class CameraViewController: UIViewController {
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
-  
+    
     public init(croppingEnabled: Bool, allowsLibraryAccess: Bool = true, completion: @escaping CameraViewCompletion) {
         super.init(nibName: nil, bundle: nil)
         onCompletion = completion
@@ -171,11 +170,11 @@ open class CameraViewController: UIViewController {
         libraryButton.isEnabled = allowsLibraryAccess
         libraryButton.isHidden = !allowsLibraryAccess
     }
-  
+    
     required public init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     open override var prefersStatusBarHidden: Bool {
         return true
     }
@@ -193,11 +192,11 @@ open class CameraViewController: UIViewController {
         super.loadView()
         view.backgroundColor = UIColor.black
         [cameraView,
-            cameraOverlay,
-            cameraButton,
-            closeButton,
-            flashButton,
-            containerSwapLibraryButton].forEach({ view.addSubview($0) })
+         cameraOverlay,
+         cameraButton,
+         closeButton,
+         flashButton,
+         containerSwapLibraryButton].forEach({ view.addSubview($0) })
         [swapButton, libraryButton].forEach({ containerSwapLibraryButton.addSubview($0) })
         view.setNeedsUpdateConstraints()
     }
@@ -211,7 +210,7 @@ open class CameraViewController: UIViewController {
      * device is rotating, based on the device orientation.
      */
     override open func updateViewConstraints() {
-
+        
         if !didUpdateViews {
             configCameraViewConstraints()
             didUpdateViews = true
@@ -234,7 +233,7 @@ open class CameraViewController: UIViewController {
         removeSwapButtonConstraints()
         configSwapButtonEdgeConstraint(statusBarOrientation)
         configSwapButtonGravityConstraint(portrait)
-
+        
         removeLibraryButtonConstraints()
         configLibraryEdgeButtonConstraint(statusBarOrientation)
         configLibraryGravityButtonConstraint(portrait)
@@ -269,7 +268,7 @@ open class CameraViewController: UIViewController {
         checkPermissions()
         cameraView.configureFocus()
     }
-
+    
     /**
      * Start the session of the camera.
      */
@@ -291,24 +290,24 @@ open class CameraViewController: UIViewController {
             notifyCameraReady()
         }
     }
-
+    
     open override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         NotificationCenter.default.removeObserver(self)
         volumeControl = nil
     }
-
+    
     /**
      * This method will disable the rotation of the
      */
     override open func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-
+        
         lastInterfaceOrientation = UIApplication.shared.statusBarOrientation
         if animationRunning {
             return
         }
-
+        
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         coordinator.animate(alongsideTransition: { [weak self] animation in
@@ -377,9 +376,9 @@ open class CameraViewController: UIViewController {
      */
     private func toggleButtons(enabled: Bool) {
         [cameraButton,
-            closeButton,
-            swapButton,
-            libraryButton].forEach({ $0.isEnabled = enabled })
+         closeButton,
+         swapButton,
+         libraryButton].forEach({ $0.isEnabled = enabled })
     }
     
     func rotateCameraView() {
@@ -397,7 +396,7 @@ open class CameraViewController: UIViewController {
                 lastInterfaceOrientation!, newOrientation: actualInterfaceOrientation))))
             setTransform(transform: lastTransform)
         }
-
+        
         let transform = CGAffineTransform(rotationAngle: 0)
         animationRunning = true
         
@@ -405,14 +404,14 @@ open class CameraViewController: UIViewController {
          * Dispatch delay to avoid any conflict between the CATransaction of rotation of the screen
          * and CATransaction of animation of buttons.
          */
-
+        
         let duration = animationDuration
         let spring = animationSpring
         let options = rotateAnimation
-
+        
         let time: DispatchTime = DispatchTime.now() + Double(1 * UInt64(NSEC_PER_SEC)/10)
         DispatchQueue.main.asyncAfter(deadline: time) { [weak self] in
-
+            
             guard let _ = self else {
                 return
             }
@@ -428,7 +427,7 @@ open class CameraViewController: UIViewController {
                 initialSpringVelocity: 0,
                 options: options,
                 animations: { [weak self] in
-                self?.setTransform(transform: transform)
+                    self?.setTransform(transform: transform)
                 }, completion: { [weak self] _ in
                     self?.animationRunning = false
             })
@@ -490,7 +489,7 @@ open class CameraViewController: UIViewController {
     internal func capturePhoto() {
         guard let output = cameraView.imageOutput,
             let connection = output.connection(withMediaType: AVMediaTypeVideo) else {
-            return
+                return
         }
         
         if connection.isEnabled {
@@ -501,13 +500,6 @@ open class CameraViewController: UIViewController {
                     return
                 }
                 
-                if let skipConfirmStepBool = self?.skipConfirmStep {
-                    if skipConfirmStepBool {
-                        self?.cameraVCDelegate?.didPickImage(image: image)
-                        return
-                    }
-                }
-                
                 self?.saveImage(image: image)
             }
         }
@@ -516,7 +508,7 @@ open class CameraViewController: UIViewController {
     internal func saveImage(image: UIImage) {
         let spinner = showSpinner()
         cameraView.preview.isHidden = true
-
+        
         _ = SingleImageSaver()
             .setImage(image)
             .onSuccess { [weak self] asset in
@@ -533,10 +525,11 @@ open class CameraViewController: UIViewController {
     }
     
     internal func close() {
-        if skipConfirmStep {
+        if let _ = self.cameraVCDelegate {
             self.dismiss(animated: true, completion: nil)
             return
         }
+        
         onCompletion?(nil, nil)
         onCompletion = nil
     }
@@ -546,16 +539,14 @@ open class CameraViewController: UIViewController {
             defer {
                 self?.dismiss(animated: true, completion: nil)
             }
-
+            
             guard let image = image, let asset = asset else {
                 return
             }
-
-            if let skipConfirmStepBool = self?.skipConfirmStep {
-                if skipConfirmStepBool {
-                    self?.cameraVCDelegate?.didPickImage(image: image)
-                    return
-                }
+            
+            if let delegate = self?.cameraVCDelegate {
+                delegate.didPickImage(image: image)
+                return
             }
             
             self?.onCompletion?(image, asset)
@@ -572,7 +563,7 @@ open class CameraViewController: UIViewController {
         guard let device = cameraView.device else {
             return
         }
-  
+        
         let image = UIImage(named: flashImage(device.flashMode),
                             in: CameraGlobals.shared.bundle,
                             compatibleWith: nil)
@@ -597,18 +588,23 @@ open class CameraViewController: UIViewController {
             defer {
                 self?.dismiss(animated: true, completion: nil)
             }
-
+            
             guard let image = image, let asset = asset else {
                 return
             }
-
+            
+            if let delegate = self?.cameraVCDelegate {
+                delegate.didPickImage(image: image)
+                return
+            }
+            
             self?.onCompletion?(image, asset)
             self?.onCompletion = nil
         }
         confirmViewController.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         present(confirmViewController, animated: true, completion: nil)
     }
-
+    
     private func showSpinner() -> UIActivityIndicatorView {
         let spinner = UIActivityIndicatorView()
         spinner.activityIndicatorViewStyle = .white
