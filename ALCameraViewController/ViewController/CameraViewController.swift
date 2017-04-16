@@ -33,7 +33,8 @@ public extension CameraViewController {
                     }
                 }
                 confirmController.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
-                imagePicker?.present(confirmController, animated: true, completion: nil)
+                navigationController.pushViewController(confirmController, animated: true)
+                //                imagePicker?.present(confirmController, animated: true, completion: nil)
             } else {
                 completion(nil, nil)
             }

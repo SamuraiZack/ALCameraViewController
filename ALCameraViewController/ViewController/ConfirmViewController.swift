@@ -46,7 +46,9 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-
+        
+        self.navigationItem.setHidesBackButton(true, animated:false)
+        
         view.backgroundColor = UIColor.black
         
         scrollView.addSubview(imageView)
@@ -62,7 +64,7 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         let spinner = showSpinner()
         
         disable()
-
+        
         _ = SingleImageFetcher()
             .setAsset(asset)
             .setTargetSize(largestPhotoSize())
@@ -81,7 +83,7 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         super.viewWillLayoutSubviews()
         let scale = calculateMinimumScale(view.frame.size)
         let frame = allowsCropping ? cropOverlay.frame : view.bounds
-
+        
         scrollView.contentInset = calculateScrollViewInsets(frame)
         scrollView.minimumZoomScale = scale
         scrollView.zoomScale = scale
@@ -113,9 +115,9 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         } else {
             frame.size = size
         }
-
+        
         let insets = calculateScrollViewInsets(frame)
-
+        
         coordinator.animate(alongsideTransition: { [weak self] context in
             self?.scrollView.contentInset = insets
             self?.scrollView.minimumZoomScale = scale
@@ -205,6 +207,10 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
     }
     
     internal func cancel() {
+        if let currentNavigation = navigationController {
+            currentNavigation.popViewController(animated: true)
+            return
+        }
         onComplete?(nil, nil)
     }
     
@@ -215,13 +221,13 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         imageView.isHidden = true
         
         let spinner = showSpinner()
-
+        
         var fetcher = SingleImageFetcher()
             .onSuccess { [weak self] image in
                 self?.onComplete?(image, self?.asset)
                 self?.hideSpinner(spinner)
                 self?.enable()
-           }
+            }
             .onFailure { [weak self] error in
                 self?.hideSpinner(spinner)
                 self?.showNoImageScreen(error)
