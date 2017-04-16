@@ -26,6 +26,8 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
     
     var asset: PHAsset!
     
+    var cameraImage : UIImage?
+    
     public init(asset: PHAsset, allowsCropping: Bool) {
         self.allowsCropping = allowsCropping
         self.asset = asset
@@ -57,26 +59,30 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         
         cropOverlay.isHidden = true
         
-        guard let asset = asset else {
-            return
+        if let image = cameraImage {
+            self.configureWithImage(image)
+        } else {
+            guard let asset = asset else {
+                return
+            }
+            
+            let spinner = showSpinner()
+            
+            disable()
+            
+            _ = SingleImageFetcher()
+                .setAsset(asset)
+                .setTargetSize(largestPhotoSize())
+                .onSuccess { [weak self] image in
+                    self?.configureWithImage(image)
+                    self?.hideSpinner(spinner)
+                    self?.enable()
+                }
+                .onFailure { [weak self] error in
+                    self?.hideSpinner(spinner)
+                }
+                .fetch()
         }
-        
-        let spinner = showSpinner()
-        
-        disable()
-        
-        _ = SingleImageFetcher()
-            .setAsset(asset)
-            .setTargetSize(largestPhotoSize())
-            .onSuccess { [weak self] image in
-                self?.configureWithImage(image)
-                self?.hideSpinner(spinner)
-                self?.enable()
-            }
-            .onFailure { [weak self] error in
-                self?.hideSpinner(spinner)
-            }
-            .fetch()
     }
     
     public override func viewWillLayoutSubviews() {
@@ -217,41 +223,47 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
     internal func confirmPhoto() {
         
         disable()
-        
-        imageView.isHidden = true
-        
-        let spinner = showSpinner()
-        
-        var fetcher = SingleImageFetcher()
-            .onSuccess { [weak self] image in
-                self?.onComplete?(image, self?.asset)
-                self?.hideSpinner(spinner)
-                self?.enable()
+        if cameraImage != nil {
+            cropOverlay.isHidden = true
+            let croppedImage = view.snapshot(of: cropOverlay.frame)
+            self.onComplete?(croppedImage, self.asset)
+            self.enable()
+        } else {
+            imageView.isHidden = true
+            
+            let spinner = showSpinner()
+            
+            var fetcher = SingleImageFetcher()
+                .onSuccess { [weak self] image in
+                    self?.onComplete?(image, self?.asset)
+                    self?.hideSpinner(spinner)
+                    self?.enable()
+                }
+                .onFailure { [weak self] error in
+                    self?.hideSpinner(spinner)
+                    self?.showNoImageScreen(error)
+                }
+                .setAsset(asset)
+            
+            if allowsCropping {
+                
+                var cropRect = cropOverlay.frame
+                cropRect.origin.x += scrollView.contentOffset.x
+                cropRect.origin.y += scrollView.contentOffset.y
+                
+                let normalizedX = cropRect.origin.x / imageView.frame.width
+                let normalizedY = cropRect.origin.y / imageView.frame.height
+                
+                let normalizedWidth = cropRect.width / imageView.frame.width
+                let normalizedHeight = cropRect.height / imageView.frame.height
+                
+                let rect = normalizedRect(CGRect(x: normalizedX, y: normalizedY, width: normalizedWidth, height: normalizedHeight), orientation: imageView.image!.imageOrientation)
+                
+                fetcher = fetcher.setCropRect(rect)
             }
-            .onFailure { [weak self] error in
-                self?.hideSpinner(spinner)
-                self?.showNoImageScreen(error)
-            }
-            .setAsset(asset)
-        
-        if allowsCropping {
             
-            var cropRect = cropOverlay.frame
-            cropRect.origin.x += scrollView.contentOffset.x
-            cropRect.origin.y += scrollView.contentOffset.y
-            
-            let normalizedX = cropRect.origin.x / imageView.frame.width
-            let normalizedY = cropRect.origin.y / imageView.frame.height
-            
-            let normalizedWidth = cropRect.width / imageView.frame.width
-            let normalizedHeight = cropRect.height / imageView.frame.height
-            
-            let rect = normalizedRect(CGRect(x: normalizedX, y: normalizedY, width: normalizedWidth, height: normalizedHeight), orientation: imageView.image!.imageOrientation)
-            
-            fetcher = fetcher.setCropRect(rect)
+            fetcher = fetcher.fetch()
         }
-        
-        fetcher = fetcher.fetch()
     }
     
     public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
@@ -293,6 +305,37 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
         let desc = localizedString("error.cant-fetch-photo.description")
         
         permissionsView.configureInView(view, title: error.localizedDescription, description: desc, completion: { [weak self] in self?.cancel() })
+    }
+    
+}
+
+extension UIView {
+    
+    /// Create snapshot
+    ///
+    /// - parameter rect: The `CGRect` of the portion of the view to return. If `nil` (or omitted),
+    ///                   return snapshot of the whole view.
+    ///
+    /// - returns: Returns `UIImage` of the specified portion of the view.
+    
+    func snapshot(of rect: CGRect? = nil) -> UIImage? {
+        // snapshot entire view
+        
+        UIGraphicsBeginImageContextWithOptions(bounds.size, isOpaque, 0)
+        drawHierarchy(in: bounds, afterScreenUpdates: true)
+        let wholeImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        // if no `rect` provided, return image of whole view
+        
+        guard let image = wholeImage, let rect = rect else { return wholeImage }
+        
+        // otherwise, grab specified `rect` of image
+        
+        let scale = image.scale
+        let scaledRect = CGRect(x: rect.origin.x * scale, y: rect.origin.y * scale, width: rect.size.width * scale, height: rect.size.height * scale)
+        guard let cgImage = image.cgImage?.cropping(to: scaledRect) else { return nil }
+        return UIImage(cgImage: cgImage, scale: scale, orientation: .up)
     }
     
 }

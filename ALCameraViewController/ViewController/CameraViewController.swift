@@ -89,6 +89,7 @@ open class CameraViewController: UIViewController {
     var cameraOverlayCenterConstraint: NSLayoutConstraint?
     
     public weak var cameraVCDelegate : CameraViewControllerDelegate?
+    public var saveCameraImage = true
     var firstLoad = true
     
     let cameraView : CameraView = {
@@ -520,13 +521,18 @@ open class CameraViewController: UIViewController {
     }
     
     internal func saveImage(image: UIImage) {
+        if !saveCameraImage {
+            self.layoutCameraResult(asset: PHAsset(), image: image)
+            return
+        }
+        
         let spinner = showSpinner()
         cameraView.preview.isHidden = true
         
         _ = SingleImageSaver()
             .setImage(image)
             .onSuccess { [weak self] asset in
-                self?.layoutCameraResult(asset: asset)
+                self?.layoutCameraResult(asset: asset, image: image)
                 self?.hideSpinner(spinner)
             }
             .onFailure { [weak self] error in
@@ -590,25 +596,30 @@ open class CameraViewController: UIViewController {
         flashButton.isHidden = cameraView.currentPosition == AVCaptureDevicePosition.front
     }
     
-    internal func layoutCameraResult(asset: PHAsset) {
+    internal func layoutCameraResult(asset: PHAsset, image: UIImage) {
         cameraView.stopSession()
-        startConfirmController(asset: asset)
+        startConfirmController(asset: asset, image: image)
         toggleButtons(enabled: true)
     }
     
-    private func startConfirmController(asset: PHAsset) {
+    private func startConfirmController(asset: PHAsset, image: UIImage) {
         let confirmViewController = ConfirmViewController(asset: asset, allowsCropping: allowCropping)
+        confirmViewController.cameraImage = image
         confirmViewController.onComplete = { [weak self] image, asset in
             defer {
                 self?.dismiss(animated: true, completion: nil)
             }
             
-            guard let image = image, let asset = asset else {
+            guard let image = image else {
                 return
             }
             
             if let delegate = self?.cameraVCDelegate {
                 delegate.didPickImage(image: image)
+                return
+            }
+            
+            guard let asset = asset else {
                 return
             }
             
