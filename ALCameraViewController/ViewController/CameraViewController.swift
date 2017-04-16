@@ -89,6 +89,7 @@ open class CameraViewController: UIViewController {
     var cameraOverlayCenterConstraint: NSLayoutConstraint?
     
     public weak var cameraVCDelegate : CameraViewControllerDelegate?
+    var firstLoad = true
     
     let cameraView : CameraView = {
         let cameraView = CameraView()
@@ -275,10 +276,13 @@ open class CameraViewController: UIViewController {
      */
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        cameraView.startSession()
-        addCameraObserver()
-        addRotateObserver()
-        setupVolumeControl()
+        
+        if !firstLoad {
+            cameraView.startSession()
+            addCameraObserver()
+            addRotateObserver()
+            setupVolumeControl()
+        }
     }
     
     /**
@@ -287,6 +291,15 @@ open class CameraViewController: UIViewController {
      */
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
+        if firstLoad {
+            firstLoad = false
+            cameraView.startSession()
+            addCameraObserver()
+            addRotateObserver()
+            setupVolumeControl()
+        }
+        
         if cameraView.session?.isRunning == true {
             notifyCameraReady()
         }
