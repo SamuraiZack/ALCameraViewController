@@ -45,7 +45,7 @@ public extension CameraViewController {
 }
 
 public protocol CameraViewControllerDelegate : class {
-    func didPickImage(image: UIImage)
+    func didPickImage(image: UIImage, cameraMode: Bool)
 }
 
 open class CameraViewController: UIViewController {
@@ -565,7 +565,7 @@ open class CameraViewController: UIViewController {
             }
             
             if let delegate = self?.cameraVCDelegate {
-                delegate.didPickImage(image: image)
+                delegate.didPickImage(image: image, cameraMode: false)
                 return
             }
             
@@ -615,7 +615,7 @@ open class CameraViewController: UIViewController {
             }
             
             if let delegate = self?.cameraVCDelegate {
-                delegate.didPickImage(image: image)
+                delegate.didPickImage(image: image, cameraMode: true)
                 return
             }
             
